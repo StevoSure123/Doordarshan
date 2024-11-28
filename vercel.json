@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/dd/play.m3u8",
+      "destination": "/api/dd/play.m3u8.js"
+    }
+  ]
+}
