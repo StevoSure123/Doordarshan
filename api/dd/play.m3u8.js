@@ -2,13 +2,20 @@ export default async function handler(req, res) {
   try {
     const { id } = req.query;
 
+    // Ensure 'id' is provided
     if (!id) {
       res.status(400).json({ error: "Missing 'id' query parameter." });
       return;
     }
 
-    const originalUrl = `https://allinonereborn.com/dd.m3u8?id=${id}`;
-    const response = await fetch(originalUrl);
+    const originalUrl = `https://ranapk.spidy.online/MACX/JAZZ4K/play.m3u8?id=${id}`;
+
+    // Fetch the original M3U8 playlist
+    const response = await fetch(originalUrl, {
+      headers: {
+        Referer: "https://ranapk.spidy.online", // Add Referer if required by the server
+      },
+    });
 
     if (!response.ok) {
       res.status(response.status).json({
@@ -17,25 +24,24 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Fetch M3U8 data
     const m3u8Data = await response.text();
 
-    // Rewrite relative segment URLs to absolute
+    // Rewrite relative URLs to absolute
     const baseUrl = originalUrl.replace(/\/[^/]*$/, "/");
     const rewrittenM3U8 = m3u8Data.replace(
-      /(^(?!https?:\/\/|#).*)/gm, // Match relative URLs (not starting with http/https/#)
-      (match) => new URL(match, baseUrl).href // Rewrite with full URL
+      /(^(?!https?:\/\/|#).*)/gm, // Matches relative URLs
+      (match) => new URL(match, baseUrl).href
     );
 
-    // Set headers for CORS and streaming
+    // Set CORS headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
 
-    // Send the rewritten M3U8 file
+    // Send the rewritten M3U8 data
     res.status(200).send(rewrittenM3U8);
   } catch (error) {
-    console.error("Error proxying M3U8:", error);
+    console.error("Error in M3U8 proxy handler:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 }
