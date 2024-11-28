@@ -1,9 +1,15 @@
 {
   "version": 2,
-  "rewrites": [
+  "builds": [
     {
-      "source": "/dd/play.m3u8",
-      "destination": "/api/dd/play.m3u8.js"
+      "src": "api/dd/play.m3u8.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/dd/play.m3u8",
+      "dest": "/api/dd/play.m3u8.js"
     }
   ]
 }
