@@ -16,8 +16,11 @@ export default async function handler(req, res) {
         const modifiedM3U8 = originalM3U8
             .split("\n")
             .map(line => {
-                if (line.trim().endsWith(".ts") || line.trim().startsWith("http")) {
-                    return `${proxyUrl}${line.trim()}`;
+                // Check for ts.php or .ts links and prepend the CORS proxy
+                if (line.includes("ts.php?ts=") || line.trim().endsWith(".ts")) {
+                    const urlStart = line.indexOf("http"); // Find where the URL starts
+                    const url = line.substring(urlStart);
+                    return line.replace(url, `${proxyUrl}${url}`);
                 }
                 return line;
             })
