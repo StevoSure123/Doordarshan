@@ -1,6 +1,9 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/dd/play.m3u8", "destination": "/api/dd/play.m3u8.js" }
+  "routes": [
+    {
+      "src": "/disney.m3u8",
+      "dest": "/api/disney.m3u8.js"
+    }
   ]
 }
