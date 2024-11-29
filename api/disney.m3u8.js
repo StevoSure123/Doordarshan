@@ -10,7 +10,7 @@ export default async function handler(req, res) {
 
     for (const proxyUrl of m3u8Proxies) {
         try {
-            // Attempt to fetch m3u8 playlist through the proxy
+            // Fetch the m3u8 playlist using the proxy
             const response = await fetch(`${proxyUrl}${m3u8Url}`);
             if (!response.ok) {
                 console.error(`Failed to fetch m3u8 using proxy ${proxyUrl}: ${response.statusText}`);
@@ -19,29 +19,26 @@ export default async function handler(req, res) {
 
             let originalM3U8 = await response.text();
 
-            // Process the playlist to update URLs for TS segments
+            // Process the playlist to update .ts URLs
             const modifiedM3U8 = originalM3U8
                 .split("\n")
                 .map(line => {
-                    if (line.includes("ts.php?ts=")) {
-                        const urlStart = line.indexOf("http");
-                        if (urlStart !== -1) {
-                            const url = line.substring(urlStart);
-                            return line.replace(url, `${tsProxy}${url}`);
+                    // If it's a TS segment URL, proxy it using ThingProxy
+                    if (line.trim().endsWith(".ts") && !line.includes(tsProxy)) {
+                        // Check if the line already has a full URL or not
+                        if (line.startsWith("http")) {
+                            return `${tsProxy}${line.trim()}`;
+                        } else {
+                            return `${tsProxy}${line.trim()}`;
                         }
                     }
-
-                    if (line.trim().endsWith(".ts") && !line.includes(tsProxy)) {
-                        return `${tsProxy}${line.trim()}`;
-                    }
-
                     return line;
                 })
                 .join("\n");
 
             const loopedM3U8 = modifiedM3U8.replace(/#EXT-X-ENDLIST/g, "").trim();
 
-            // Send the modified playlist
+            // Send the modified M3U8 playlist
             res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
             return res.status(200).send(loopedM3U8);
         } catch (error) {
