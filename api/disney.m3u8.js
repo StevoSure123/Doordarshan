@@ -23,9 +23,9 @@ export default async function handler(req, res) {
     let m3u8Data = await response.text();
 
     // Replace segment URLs with proxied URLs
-    const proxyBaseUrl = "https://cors-proxy.cooks.fyi/";
-    m3u8Data = m3u8Data.replace(/(https?:\/\/[^\/]+\/)([^\.]+\.ts)/g, (match, baseUrl, segment) => {
-      return proxyBaseUrl + segment;
+    const proxyBaseUrl = "https://cors-proxy.cooks.fyi/https://ranapk.spidy.online/";
+    m3u8Data = m3u8Data.replace(/(https?:\/\/[^\/]+\/[^\.]+\.ts)/g, (match) => {
+      return proxyBaseUrl + match.replace(/^https?:\/\/[^\/]+\//, "");
     });
 
     // Optimize CORS and caching headers
@@ -39,15 +39,14 @@ export default async function handler(req, res) {
     const preloadedSegments = m3u8Data
       .split("\n")
       .filter(line => line.endsWith(".ts")) // Fetch .ts files
-      .map(segmentUrl => {
-        const resolvedUrl = new URL(segmentUrl, originalUrl).toString();
-        return fetch(resolvedUrl).catch(err => console.error("Preload error:", err));
-      });
+      .map(segmentUrl =>
+        fetch(new URL(segmentUrl, originalUrl).toString()).catch(err => console.error("Preload error:", err))
+      );
 
-    // Wait for preloading to complete
-    await Promise.all(preloadedSegments);
-
-    console.log("Segments preloaded");
+    // Wait for preloading to complete (non-blocking, or use await if blocking is needed)
+    Promise.all(preloadedSegments)
+      .then(() => console.log("Segments preloaded"))
+      .catch(err => console.error("Error preloading segments:", err));
 
     // Send the M3U8 playlist as the response
     res.status(200).send(m3u8Data);
