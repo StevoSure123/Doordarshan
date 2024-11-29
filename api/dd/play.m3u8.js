@@ -4,25 +4,19 @@ export default async function handler(req, res) {
 
     // Check if 'id' parameter is present
     if (!id) {
-      res.status(400).json({ error: "Missing 'id' query parameter." });
-      return;
+      return res.status(400).json({ error: "Missing 'id' query parameter." });
     }
 
     const originalUrl = `https://cors-proxy.cooks.fyi/https://allinonereborn.com/dd.m3u8?id=${id}`;
 
     // Fetch the M3U8 playlist from the original URL
-    const response = await fetch(originalUrl, {
-      headers: {
-        Referer: "RANAPK", // Correct referer to avoid fetch blocking
-      },
-    });
+    const response = await fetch(originalUrl);
 
     // If the fetch fails
     if (!response.ok) {
-      res.status(response.status).json({
+      return res.status(response.status).json({
         error: `Failed to fetch M3U8 from original URL: ${response.statusText}`,
       });
-      return;
     }
 
     // Parse the M3U8 data as text
@@ -40,9 +34,7 @@ export default async function handler(req, res) {
       .split("\n")
       .filter(line => line.endsWith(".ts")) // Fetch .ts files
       .map(segmentUrl =>
-        fetch(new URL(segmentUrl, originalUrl).toString(), {
-          headers: { Referer: "RANAPK" },
-        }).catch(err => console.error("Preload error:", err))
+        fetch(new URL(segmentUrl, originalUrl).toString()).catch(err => console.error("Preload error:", err))
       );
 
     // Wait for preloading to complete (non-blocking, or use await if blocking is needed)
