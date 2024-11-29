@@ -12,37 +12,30 @@ export default async function handler(req, res) {
 
         let originalM3U8 = await response.text();
 
-        // Process the playlist to update URLs
+        // Process the playlist to rewrite segment URLs
         const modifiedM3U8 = originalM3U8
             .split("\n")
             .map(line => {
-                // Modify ts.php links
-                if (line.includes("ts.php?ts=")) {
-                    const urlStart = line.indexOf("http");
-                    if (urlStart !== -1) {
-                        const url = line.substring(urlStart);
-                        return line.replace(url, `${proxyUrl}${url}`);
-                    }
+                // Handle absolute URLs (e.g., ts.php links)
+                if (line.includes("http") && !line.includes(proxyUrl)) {
+                    return `${proxyUrl}${line}`;
                 }
 
-                // Add proxy to .ts files, but skip if already proxied
-                if (line.trim().endsWith(".ts") && !line.includes(proxyUrl)) {
+                // Handle relative segment URLs (e.g., .ts files)
+                if (line.trim().endsWith(".ts")) {
                     return `${proxyUrl}${line.trim()}`;
                 }
 
+                // Return other lines as-is (e.g., headers like #EXTINF)
                 return line;
             })
             .join("\n");
 
-        // Ensure no #EXT-X-ENDLIST for infinite loop playback
-        const loopedM3U8 = modifiedM3U8.replace(/#EXT-X-ENDLIST/g, "").trim();
-
         // Send the modified playlist
         res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-        res.status(200).send(loopedM3U8);
+        res.status(200).send(modifiedM3U8);
     } catch (error) {
-        // Enhanced error message for debugging
         console.error("Error processing m3u8:", error);
         res.status(500).send(`Error processing m3u8: ${error.message}`);
     }
-                            }
+                                  }
