@@ -8,11 +8,14 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Build the original URL for the M3U8 file
-    const originalUrl = `https://ranapk.spidy.online/MACX/JAZZ4K/play.m3u8?id=${id}`;
+    const originalUrl = `https://cors-proxy.cooks.fyi/https://allinonereborn.com/dd.m3u8?id=${id}`;
 
-    // Fetch the M3U8 playlist from the original URL (without headers)
-    const response = await fetch(originalUrl);
+    // Fetch the M3U8 playlist from the original URL
+    const response = await fetch(originalUrl, {
+      headers: {
+        Referer: "RANAPK", // Correct referer to avoid fetch blocking
+      },
+    });
 
     // If the fetch fails
     if (!response.ok) {
@@ -25,24 +28,32 @@ export default async function handler(req, res) {
     // Parse the M3U8 data as text
     const m3u8Data = await response.text();
 
-    // Fix relative URLs in the M3U8 file to be absolute
-    const baseUrl = originalUrl.replace(/\/[^/]*$/, "/");
-    const rewrittenM3U8 = m3u8Data.replace(
-      /(^(?!https?:\/\/|#).*)/gm,
-      (match) => new URL(match, baseUrl).href
-    );
-
-    // Set CORS headers to allow the browser to handle the file
+    // Optimize CORS and caching headers
     res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    res.setHeader("Cache-Control", "public, max-age=5"); // Cache for 5 seconds for better performance
 
-    // Send the M3U8 data as the response
-    res.status(200).send(rewrittenM3U8);
+    // Preload related media segments (for reducing buffering)
+    const preloadedSegments = m3u8Data
+      .split("\n")
+      .filter(line => line.endsWith(".ts")) // Fetch .ts files
+      .map(segmentUrl =>
+        fetch(new URL(segmentUrl, originalUrl).toString(), {
+          headers: { Referer: "RANAPK" },
+        }).catch(err => console.error("Preload error:", err))
+      );
+
+    // Wait for preloading to complete (non-blocking, or use await if blocking is needed)
+    Promise.all(preloadedSegments)
+      .then(() => console.log("Segments preloaded"))
+      .catch(err => console.error("Error preloading segments:", err));
+
+    // Send the M3U8 playlist as the response
+    res.status(200).send(m3u8Data);
   } catch (error) {
-    // Log the error for debugging purposes
-    console.error("Error in M3U8 proxy handler:", error);
-
-    // Respond with a 500 internal server error and error details
+    console.error("Error in M3U8 handler:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 }
