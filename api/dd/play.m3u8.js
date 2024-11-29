@@ -20,7 +20,13 @@ export default async function handler(req, res) {
     }
 
     // Parse the M3U8 data as text
-    const m3u8Data = await response.text();
+    let m3u8Data = await response.text();
+
+    // Replace segment URLs with proxied URLs
+    const proxyBaseUrl = "https://cors-proxy.cooks.fyi/https://allinonereborn.com/";
+    m3u8Data = m3u8Data.replace(/(https?:\/\/[^\/]+\/[^\.]+\.ts)/g, (match) => {
+      return proxyBaseUrl + match.replace(/^https?:\/\/[^\/]+\//, "");
+    });
 
     // Optimize CORS and caching headers
     res.setHeader("Access-Control-Allow-Origin", "*");
