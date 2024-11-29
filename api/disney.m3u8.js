@@ -3,30 +3,33 @@ export default async function handler(req, res) {
     const m3u8Url = "https://ranapk.spidy.online/MACX/JAZZ4K/play.m3u8?id=864";
 
     try {
-        // Fetch the original m3u8 playlist through the proxy
         const response = await fetch(`${proxyUrl}${m3u8Url}`);
         if (!response.ok) {
             res.status(response.status).send(`Failed to fetch m3u8: ${response.statusText}`);
             return;
         }
 
-        const originalM3U8 = await response.text();
+        let originalM3U8 = await response.text();
 
-        // Process the m3u8 to prepend the proxy URL to all .ts segment URLs
         const modifiedM3U8 = originalM3U8
             .split("\n")
             .map(line => {
-                // Check for ts.php or .ts links and prepend the CORS proxy
-                if (line.includes("ts.php?ts=") || line.trim().endsWith(".ts")) {
-                    const urlStart = line.indexOf("http"); // Find where the URL starts
+                if (line.includes("ts.php?ts=")) {
+                    const urlStart = line.indexOf("http");
                     const url = line.substring(urlStart);
                     return line.replace(url, `${proxyUrl}${url}`);
+                } else if (line.trim().endsWith(".ts")) {
+                    return `${proxyUrl}${line.trim()}`;
                 }
                 return line;
             })
             .join("\n");
 
-        // Set appropriate headers for an m3u8 playlist
+        // Ensure playlist has #EXT-X-ENDLIST for proper playback
+        if (!modifiedM3U8.includes("#EXT-X-ENDLIST")) {
+            modifiedM3U8 += "\n#EXT-X-ENDLIST";
+        }
+
         res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
         res.status(200).send(modifiedM3U8);
     } catch (error) {
