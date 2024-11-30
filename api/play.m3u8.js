@@ -8,16 +8,15 @@ export default async function handler(req, res) {
       return;
     }
 
-    const originalUrl = `https://m3u8-proxy-six.vercel.app/m3u8-proxy?url=https://ranapk.spidy.online/MACX/JAZZ4K/play.m3u8?id=${id}headers=%7B%22referer%22%3A%22https%3A%2F%2F9anime.pl%22%7D`;
+    const originalUrl = `https://m3u8-proxy-six.vercel.app/m3u8-proxy?url=https://ranapk.spidy.online/MACX/JAZZ4K/play.m3u8?id=${id}&headers=%7B%22referer%22%3A%22https%3A%2F%2F9anime.pl%22%7D`;
 
-    // Fetch the M3U8 playlist from the original URL
+    // Fetch the M3U8 playlist
     const response = await fetch(originalUrl, {
       headers: {
-        Referer: "RANAPK", // Correct referer to avoid fetch blocking
+        Referer: "https://ranapk.spidy.online", // Adjust as needed
       },
     });
 
-    // If the fetch fails
     if (!response.ok) {
       res.status(response.status).json({
         error: `Failed to fetch M3U8 from original URL: ${response.statusText}`,
@@ -25,7 +24,6 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Parse the M3U8 data as text
     const m3u8Data = await response.text();
 
     // Optimize CORS and caching headers
@@ -33,24 +31,20 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "public, max-age=5"); // Cache for 5 seconds for better performance
+    res.setHeader("Cache-Control", "public, max-age=5");
 
-    // Preload related media segments (for reducing buffering)
+    // Optionally preload related media segments
     const preloadedSegments = m3u8Data
       .split("\n")
-      .filter(line => line.endsWith(".ts")) // Fetch .ts files
-      .map(segmentUrl =>
+      .filter((line) => line.endsWith(".ts"))
+      .map((segmentUrl) =>
         fetch(new URL(segmentUrl, originalUrl).toString(), {
-          headers: { Referer: "RANAPK" },
-        }).catch(err => console.error("Preload error:", err))
+          headers: { Referer: "https://ranapk.spidy.online" },
+        }).catch((err) => console.error("Preload error:", err))
       );
 
-    // Wait for preloading to complete (non-blocking, or use await if blocking is needed)
-    Promise.all(preloadedSegments)
-      .then(() => console.log("Segments preloaded"))
-      .catch(err => console.error("Error preloading segments:", err));
+    await Promise.all(preloadedSegments); // Optional: Use if preloading must complete
 
-    // Send the M3U8 playlist as the response
     res.status(200).send(m3u8Data);
   } catch (error) {
     console.error("Error in M3U8 handler:", error);
