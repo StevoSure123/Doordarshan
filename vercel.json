@@ -2,6 +2,6 @@
   "version": 2,
   "rewrites": [
     { "source": "/play.m3u8", "destination": "/api/play.m3u8.js" },
-    { "source": "/api/hungama.m3u8", "destination": "/hungama.m3u8" }
+    { "source": "/api/hungama.m3u8.js", "destination": "/hungama.m3u8" }
   ]
 }
