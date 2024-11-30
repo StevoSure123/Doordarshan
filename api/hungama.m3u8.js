@@ -7,7 +7,10 @@ export default async function handler(req, res) {
       return;
     }
 
-    const originalUrl = `https://m3u8-proxy-six.vercel.app/m3u8-proxy?url=http://119.156.26.155:8000/play/a05t/79153427.m3u8&headers=%7B%22referer%22%3A%22https%3A%2F%2F9anime.pl%22%7D`;
+    const baseM3U8Url = `http://119.156.26.155:8000/play/a05t/${id}.m3u8`;
+    const originalUrl = `https://m3u8-proxy-six.vercel.app/m3u8-proxy?url=${encodeURIComponent(
+      baseM3U8Url
+    )}&headers=${encodeURIComponent(JSON.stringify({ referer: "https://9anime.pl" }))}`;
 
     const response = await fetch(originalUrl, {
       headers: { Referer: "https://ranapk.spidy.online" },
@@ -22,12 +25,17 @@ export default async function handler(req, res) {
 
     const m3u8Data = await response.text();
 
+    if (!m3u8Data.includes("#EXTM3U")) {
+      res.status(500).json({ error: "Invalid M3U8 data received." });
+      return;
+    }
+
     // Set CORS and cache headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "public, max-age=30"); // Cache for 30 seconds
+    res.setHeader("Cache-Control", "public, max-age=60"); // Cache for 60 seconds
 
     // Preload next segments to reduce buffering
     const tsSegments = m3u8Data.split("\n").filter((line) => line.endsWith(".ts"));
@@ -36,9 +44,16 @@ export default async function handler(req, res) {
         urls.slice(i * limit, i * limit + limit)
       );
       for (const chunk of chunks) {
-        await Promise.all(chunk.map((url) =>
-          fetch(new URL(url, originalUrl).toString(), { headers: { Referer: "https://ranapk.spidy.online" } })
-        ));
+        await Promise.all(
+          chunk.map(async (url) => {
+            try {
+              const resolvedUrl = new URL(url, baseM3U8Url).toString();
+              await fetch(resolvedUrl, { headers: { Referer: "https://ranapk.spidy.online" } });
+            } catch (err) {
+              console.error(`Error preloading segment: ${url}`, err);
+            }
+          })
+        );
       }
     };
     preloadWithLimit(tsSegments.slice(0, 3)); // Preload the next 3 segments
