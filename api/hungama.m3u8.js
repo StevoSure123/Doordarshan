@@ -7,7 +7,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const originalUrl = `https://m3u8-proxy-six.vercel.app/m3u8-proxy?url=http://119.156.26.155:8000/play/{id}/79153427.m3u8&headers=%7B%22referer%22%3A%22https%3A%2F%2F9anime.pl%22%7D`;
+    const originalUrl = `https://m3u8-proxy-six.vercel.app/m3u8-proxy?url=http://119.156.26.155:8000/play/a05t/79153427.m3u8&headers=%7B%22referer%22%3A%22https%3A%2F%2F9anime.pl%22%7D`;
 
     const response = await fetch(originalUrl, {
       headers: { Referer: "https://ranapk.spidy.online" },
