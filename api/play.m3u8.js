@@ -1,62 +1,51 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Play M3U8 Stream</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@0.14.19/dist/hls.min.js"></script>
-</head>
-<body>
+export default async function handler(req, res) {
+  try {
+    const { id } = req.query;
 
-<video id="video" width="100%" height="100%" controls></video>
+    if (!id) {
+      res.status(400).json({ error: "Missing 'id' query parameter." });
+      return;
+    }
 
-<script>
-  // Check if the browser supports HLS.js
-  if (Hls.isSupported()) {
-      var video = document.getElementById('video');
-      var hls = new Hls({
-          // Configuring buffer settings for better performance
-          startLevel: -1, // Start with the best available level
-          capLevelOnFPSDrop: true, // Cap video quality if FPS drops
-          maxBufferLength: 30, // Max buffer length in seconds
-          maxMaxBufferLength: 60, // Max overall buffer size in seconds
-          maxBufferSize: 60 * 1000 * 1000, // Max buffer size in bytes
-          liveSyncDurationCount: 3, // Number of segments to sync for live content
-          maxBufferHole: 0.5, // Max allowed buffer hole (seconds)
+    const originalUrl = `https://m3u8-proxy-six.vercel.app/m3u8-proxy?url=https://ranapk.spidy.online/MACX/JAZZ4K/play.m3u8?id=${id}&headers=%7B%22referer%22%3A%22https%3A%2F%2F9anime.pl%22%7D`;
+
+    const response = await fetch(originalUrl, {
+      headers: { Referer: "https://ranapk.spidy.online" },
+    });
+
+    if (!response.ok) {
+      res.status(response.status).json({
+        error: `Failed to fetch M3U8 from original URL: ${response.statusText}`,
       });
+      return;
+    }
 
-      // Provide the m3u8 stream URL
-      hls.loadSource('http://119.156.26.155:8000/play/a05u/index.m3u8');
-      hls.attachMedia(video);
+    const m3u8Data = await response.text();
 
-      // Once HLS is attached to the video element, play it
-      hls.on(Hls.Events.MANIFEST_LOADED, function () {
-          video.play();
-      });
+    // Set CORS and cache headers
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    res.setHeader("Cache-Control", "public, max-age=30"); // Cache for 30 seconds
 
-      // Handle errors
-      hls.on(Hls.Events.ERROR, function (event, data) {
-          if (data.fatal) {
-              switch (data.type) {
-                  case Hls.ErrorTypes.NETWORK_ERROR:
-                      console.error('A network error occurred');
-                      break;
-                  case Hls.ErrorTypes.MEDIA_ERROR:
-                      console.error('A media error occurred');
-                      break;
-                  case Hls.ErrorTypes.OTHER_ERROR:
-                      console.error('An unknown error occurred');
-                      break;
-                  default:
-                      console.error('A fatal error occurred');
-                      break;
-              }
-          }
-      });
-  } else {
-      console.error('HLS.js is not supported in this browser.');
+    // Preload next segments to reduce buffering
+    const tsSegments = m3u8Data.split("\n").filter((line) => line.endsWith(".ts"));
+    const preloadWithLimit = async (urls, limit = 5) => {
+      const chunks = Array.from({ length: Math.ceil(urls.length / limit) }, (_, i) =>
+        urls.slice(i * limit, i * limit + limit)
+      );
+      for (const chunk of chunks) {
+        await Promise.all(chunk.map((url) =>
+          fetch(new URL(url, originalUrl).toString(), { headers: { Referer: "https://ranapk.spidy.online" } })
+        ));
+      }
+    };
+    preloadWithLimit(tsSegments.slice(0, 3)); // Preload the next 3 segments
+
+    res.status(200).send(m3u8Data);
+  } catch (error) {
+    console.error("Error in M3U8 handler:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
-</script>
-
-</body>
-</html>
+}
