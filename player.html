@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirect to Player Page</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .redirect-button {
+            background-color: #444;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: background-color 0.3s ease;
+        }
+
+        .redirect-button:hover {
+            background-color: #666;
+        }
+
+        iframe {
+            width: 80%;
+            height: 70vh;
+            border: none;
+            margin-top: 20px;
+            border-radius: 15px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Redirect Button -->
+    <button class="redirect-button" id="redirectButton">Redirect to Player Page</button>
+
+    <h1>Uno Game(BONUS!)</h1>
+
+    <!-- Embed Uno Game in an iframe -->
+    <iframe src="https://unknown-playlists-opplex-tv.vercel.app/Uno%20Multiplayer.html" title="Uno Game"></iframe>
+
+    <script>
+        // Redirect button functionality
+        const params = new URLSearchParams(window.location.search);
+        const streamUrl = decodeURIComponent(params.get('url'));
+        const channelName = decodeURIComponent(params.get('name'));
+        const httpUrl = `http://unknown-playlists.sportsontheweb.net/player4.html?url=${encodeURIComponent(streamUrl)}&name=${encodeURIComponent(channelName)}`;
+
+        const redirectButton = document.getElementById('redirectButton');
+        redirectButton.addEventListener('click', () => {
+            window.location.href = httpUrl;
+        });
+    </script>
+</body>
+</html>
