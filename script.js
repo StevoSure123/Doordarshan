@@ -124,6 +124,6 @@ document.getElementById('next-page').addEventListener('click', () => {
 
 // Play stream by redirecting to the player page
 function playStream(url, name) {
-    const playerUrl = `https://unknown-playlists-sony-liv.vercel.app/player.html?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
+    const playerUrl = `https://unknown-playlists-jazz4k.vercel.app/player.html?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
     window.location.href = playerUrl;
 }
