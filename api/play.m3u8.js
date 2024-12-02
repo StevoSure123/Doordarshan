@@ -7,7 +7,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const originalUrl = https://m3u8-proxy-six.vercel.app/m3u8-proxy?url=https://ranapk.spidy.online/MACX/JAZZ4K/play.m3u8?id=${id}&headers=%7B%22referer%22%3A%22https%3A%2F%2F9anime.pl%22%7D;
+    const originalUrl = `https://m3u8-proxy-six.vercel.app/m3u8-proxy?url=https://ranapk.spidy.online/MACX/JAZZ4K/play.m3u8?id=${id}&headers=%7B%22referer%22%3A%22https%3A%2F%2F9anime.pl%22%7D`;
 
     const response = await fetch(originalUrl, {
       headers: { Referer: "https://ranapk.spidy.online" },
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       res.status(response.status).json({
-        error: Failed to fetch M3U8 from original URL: ${response.statusText},
+        error: `Failed to fetch M3U8 from original URL: ${response.statusText}`,
       });
       return;
     }
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
         limitedUrls.map((url) =>
           fetch(new URL(url, originalUrl).toString(), {
             headers: { Referer: "https://ranapk.spidy.online" },
-          }).catch((e) => console.warn(Preload failed for ${url}: ${e.message}))
+          }).catch((e) => console.warn(`Preload failed for ${url}: ${e.message}`))
         )
       );
     };
