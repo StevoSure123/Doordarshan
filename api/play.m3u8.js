@@ -25,9 +25,9 @@ export default async function handler(req, res) {
     // Extract TS segment URLs
     const tsSegments = m3u8Data.split("\n").filter((line) => line.endsWith(".ts"));
 
-    // Preload a larger number of TS segments asynchronously (increase this number for less buffering)
-    const preloadSegments = async (urls, maxSegments = 20) => {
-      const limitedUrls = urls.slice(0, maxSegments); // Preload first 20 segments
+    // Preload TS segments asynchronously
+    const preloadSegments = async (urls, maxSegments = 5) => {
+      const limitedUrls = urls.slice(0, maxSegments);
       await Promise.all(
         limitedUrls.map((url) =>
           fetch(new URL(url, originalUrl).toString(), {
@@ -37,18 +37,17 @@ export default async function handler(req, res) {
       );
     };
 
-    preloadSegments(tsSegments, 20); // Preload the first 20 segments
+    preloadSegments(tsSegments, 5); // Preload the first 5 segments
 
     // Set response headers for CORS, caching, and content type
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "public, max-age=3600"); // Cache for 1 hour instead of 30 seconds
+    res.setHeader("Cache-Control", "public, max-age=30"); // Cache for 30 seconds
 
-    // Stream the M3U8 playlist to the client
+    // Send the M3U8 playlist
     res.status(200).send(m3u8Data);
-
   } catch (error) {
     console.error("Error in M3U8 handler:", error);
     res.status(500).json({ error: "Internal server error." });
