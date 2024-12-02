@@ -20,12 +20,13 @@ export default async function handler(req, res) {
       return;
     }
 
-    const m3u8Data = await response.text();
+    let m3u8Data = await response.text();
 
-    // Extract TS segment URLs
+    // Replace .ts.php URLs with .ts
+    m3u8Data = m3u8Data.replace(/\.ts\.php/g, ".ts");
+
+    // Optional: Preload TS segments
     const tsSegments = m3u8Data.split("\n").filter((line) => line.endsWith(".ts"));
-
-    // Preload TS segments asynchronously
     const preloadSegments = async (urls, maxSegments = 5) => {
       const limitedUrls = urls.slice(0, maxSegments);
       await Promise.all(
@@ -36,7 +37,6 @@ export default async function handler(req, res) {
         )
       );
     };
-
     preloadSegments(tsSegments, 5); // Preload the first 5 segments
 
     // Set response headers for CORS, caching, and content type
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
     res.setHeader("Cache-Control", "public, max-age=30"); // Cache for 30 seconds
 
-    // Send the M3U8 playlist
+    // Send the modified M3U8 playlist
     res.status(200).send(m3u8Data);
   } catch (error) {
     console.error("Error in M3U8 handler:", error);
