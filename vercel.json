@@ -2,6 +2,6 @@
   "version": 2,
   "rewrites": [
     { "source": "/play.m3u8", "destination": "/api/play.m3u8.js" },
-    { "source": "/jiobe.m3u8", "destination": "api/jiobe.m3u8.js" }
+    { "source": "/smart4k.m3u8", "destination": "api/smart4k.m3u8.js" }
   ]
 }
