@@ -22,15 +22,10 @@ export default async function handler(req, res) {
 
     const m3u8Data = await response.text();
 
-    // Set CORS and cache headers
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "public, max-age=30"); // Cache for 30 seconds
-
-    // Preload next segments to reduce buffering
+    // Extract TS segments for preloading
     const tsSegments = m3u8Data.split("\n").filter((line) => line.endsWith(".ts"));
+
+    // Preload next 5 segments
     const preloadWithLimit = async (urls, limit = 5) => {
       const chunks = Array.from({ length: Math.ceil(urls.length / limit) }, (_, i) =>
         urls.slice(i * limit, i * limit + limit)
@@ -41,7 +36,14 @@ export default async function handler(req, res) {
         ));
       }
     };
-    preloadWithLimit(tsSegments.slice(0, 3)); // Preload the next 3 segments
+    preloadWithLimit(tsSegments.slice(0, 5));
+
+    // Set headers
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    res.setHeader("Cache-Control", "public, max-age=60"); // Cache for 60 seconds
 
     res.status(200).send(m3u8Data);
   } catch (error) {
