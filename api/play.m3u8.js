@@ -1,5 +1,6 @@
-let cachedSegments = []; // Cache for fetched .ts segments
-let lastFetchedSegment = null; // Track the last fetched segment
+let cachedSegments = [];
+const MAX_CACHE_SIZE = 50; // Limit cached segments
+let lastSegmentFetched = null;
 
 export default async function handler(req, res) {
   try {
@@ -33,32 +34,36 @@ export default async function handler(req, res) {
 
     const m3u8Data = await response.text();
 
-    // Parse and update segment cache
-    const tsSegments = m3u8Data
+    // Parse new segments and update cache
+    const newSegments = m3u8Data
       .split("\n")
       .filter((line) => line.endsWith(".ts"));
 
-    // Cache new segments
-    tsSegments.forEach((seg) => {
-      if (!cachedSegments.includes(seg)) {
-        cachedSegments.push(seg);
+    newSegments.forEach((segment) => {
+      if (!cachedSegments.includes(segment)) {
+        cachedSegments.push(segment);
       }
     });
 
-    lastFetchedSegment = tsSegments[tsSegments.length - 1];
+    // Enforce cache size limit
+    if (cachedSegments.length > MAX_CACHE_SIZE) {
+      cachedSegments = cachedSegments.slice(-MAX_CACHE_SIZE);
+    }
 
-    // Preload more segments
-    await preloadSegments(tsSegments);
+    lastSegmentFetched = newSegments[newSegments.length - 1];
 
-    // Dynamically build the playlist for playback
-    const updatedM3U8 = buildDynamicPlaylist(m3u8Data);
+    // Preload next segments
+    await preloadSegments(newSegments);
 
-    // Set response headers
+    // Dynamically build the playlist
+    const updatedM3U8 = buildPlaylist(m3u8Data);
+
+    // Set headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "public, max-age=10"); // Short cache for near real-time updates
+    res.setHeader("Cache-Control", "public, max-age=10");
 
     res.status(200).send(updatedM3U8);
   } catch (error) {
@@ -67,29 +72,28 @@ export default async function handler(req, res) {
   }
 }
 
-// Function to preload segments
-async function preloadSegments(segments, retries = 3) {
-  for (const segment of segments) {
-    try {
-      const segmentUrl = new URL(segment, originalUrl).toString();
-      await fetch(segmentUrl, {
-        headers: { Referer: "https://ranapk.spidy.online" },
-      });
-    } catch (error) {
-      console.error(`Failed to preload segment: ${segment}, Error: ${error}`);
-      if (retries > 0) {
-        await preloadSegments([segment], retries - 1);
-      }
-    }
+// Preload segments with a limit on parallel requests
+async function preloadSegments(segments, concurrency = 5) {
+  const preloadQueue = segments.slice(0, 10); // Preload the first 10 segments
+  const chunkedQueue = Array.from({ length: Math.ceil(preloadQueue.length / concurrency) }, (_, i) =>
+    preloadQueue.slice(i * concurrency, i * concurrency + concurrency)
+  );
+
+  for (const chunk of chunkedQueue) {
+    await Promise.all(
+      chunk.map((segment) =>
+        fetch(new URL(segment, lastSegmentFetched).toString(), {
+          headers: { Referer: "https://ranapk.spidy.online" },
+        }).catch((err) => console.error(`Preload error for ${segment}:`, err))
+      )
+    );
   }
 }
 
-// Function to build a dynamic playlist
-function buildDynamicPlaylist(m3u8Data) {
+// Build playlist with cached and real-time segments
+function buildPlaylist(m3u8Data) {
   const lines = m3u8Data.split("\n");
-  const segments = lines.filter((line) => line.endsWith(".ts"));
-
-  // Append new segments dynamically
+  const playlistSegments = lines.filter((line) => line.endsWith(".ts"));
   const allSegments = [...cachedSegments].join("\n");
 
   return lines
