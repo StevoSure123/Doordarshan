@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         ));
       }
     };
-    preloadWithLimit(tsSegments.slice(0, 3)); // Preload the next 3 segments
+    preloadWithLimit(tsSegments.slice(0, 2)); // Preload the next 3 segments
 
     res.status(200).send(m3u8Data);
   } catch (error) {
