@@ -27,21 +27,29 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "public, max-age=30"); // Cache for 30 seconds
+    res.setHeader("Cache-Control", "public, max-age=60"); // Cache for 60 seconds
 
-    // Preload next segments to reduce buffering
-    const tsSegments = m3u8Data.split("\n").filter((line) => line.endsWith(".ts"));
-    const preloadWithLimit = async (urls, limit = 5) => {
+    // Optimize preloading
+    const tsSegments = m3u8Data
+      .split("\n")
+      .filter((line) => line.endsWith(".ts"))
+      .map((url) => new URL(url, originalUrl).toString());
+
+    const preloadWithLimit = async (urls, limit = 3) => {
       const chunks = Array.from({ length: Math.ceil(urls.length / limit) }, (_, i) =>
         urls.slice(i * limit, i * limit + limit)
       );
+
       for (const chunk of chunks) {
-        await Promise.all(chunk.map((url) =>
-          fetch(new URL(url, originalUrl).toString(), { headers: { Referer: "https://ranapk.spidy.online" } })
-        ));
+        await Promise.all(
+          chunk.map((url) =>
+            fetch(url, { headers: { Referer: "https://ranapk.spidy.online" } }).catch(() => null)
+          )
+        );
       }
     };
-    preloadWithLimit(tsSegments.slice(0, 3)); // Preload the next 3 segments
+
+    preloadWithLimit(tsSegments.slice(0, 5)); // Preload the next 5 segments
 
     res.status(200).send(m3u8Data);
   } catch (error) {
