@@ -1,3 +1,6 @@
+let cachedSegments = []; // Cache for fetched .ts segments
+let segmentFetchErrors = 0; // Track fetch errors
+
 export default async function handler(req, res) {
   try {
     if (req.method === "OPTIONS") {
@@ -30,39 +33,62 @@ export default async function handler(req, res) {
 
     const m3u8Data = await response.text();
 
+    // Parse segments and update the cache
+    const tsSegments = m3u8Data
+      .split("\n")
+      .filter((line) => line.endsWith(".ts"));
+
+    cachedSegments.push(...tsSegments.filter((seg) => !cachedSegments.includes(seg)));
+
+    // Preload more segments for stability
+    await preloadSegments(tsSegments);
+
+    // Rebuild playlist for continuous playback
+    const updatedM3U8 = rebuildPlaylist(m3u8Data);
+
+    // Set headers for stability and playback
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "public, max-age=30");
+    res.setHeader("Cache-Control", "public, max-age=15"); // Short cache for near real-time updates
 
-    const tsSegments = m3u8Data.split("\n").filter((line) => line.endsWith(".ts"));
-
-    const preloadWithLimit = async (urls, limit = 5) => {
-      const chunks = Array.from(
-        { length: Math.ceil(urls.length / limit) },
-        (_, i) => urls.slice(i * limit, i * limit + limit)
-      );
-      for (const chunk of chunks) {
-        await Promise.all(
-          chunk.map((url) =>
-            fetch(new URL(url, originalUrl).toString(), {
-              headers: { Referer: "https://ranapk.spidy.online" },
-            })
-          )
-        );
-      }
-    };
-
-    try {
-      await preloadWithLimit(tsSegments.slice(0, 2)); // Preload the next 2 segments
-    } catch (preloadError) {
-      console.error("Error during segment preloading:", preloadError);
-    }
-
-    res.status(200).send(m3u8Data);
+    res.status(200).send(updatedM3U8);
   } catch (error) {
     console.error("Error in M3U8 handler:", error);
     res.status(500).json({ error: "Internal server error." });
   }
+}
+
+// Function to preload segments and retry on failure
+async function preloadSegments(segments, retries = 3) {
+  for (const segment of segments) {
+    try {
+      const segmentUrl = new URL(segment, originalUrl).toString();
+      await fetch(segmentUrl, {
+        headers: { Referer: "https://ranapk.spidy.online" },
+      });
+    } catch (error) {
+      console.error(`Failed to preload segment: ${segment}, Error: ${error}`);
+      if (retries > 0) {
+        await preloadSegments([segment], retries - 1);
+      } else {
+        segmentFetchErrors++;
+      }
+    }
+  }
+}
+
+// Function to rebuild the playlist for continuous playback
+function rebuildPlaylist(m3u8Data) {
+  const lines = m3u8Data.split("\n");
+  const segments = lines.filter((line) => line.endsWith(".ts"));
+
+  // Append cached segments for looping
+  const loopedSegments = [...segments, ...cachedSegments].join("\n");
+
+  // Replace original segments with the looped playlist
+  return lines
+    .map((line) => (line.endsWith(".ts") ? loopedSegments : line))
+    .join("\n");
 }
