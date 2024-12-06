@@ -1,5 +1,5 @@
 let cachedSegments = []; // Cache for fetched .ts segments
-let segmentFetchErrors = 0; // Track fetch errors
+let lastFetchedSegment = null; // Track the last fetched segment
 
 export default async function handler(req, res) {
   try {
@@ -33,25 +33,32 @@ export default async function handler(req, res) {
 
     const m3u8Data = await response.text();
 
-    // Parse segments and update the cache
+    // Parse and update segment cache
     const tsSegments = m3u8Data
       .split("\n")
       .filter((line) => line.endsWith(".ts"));
 
-    cachedSegments.push(...tsSegments.filter((seg) => !cachedSegments.includes(seg)));
+    // Cache new segments
+    tsSegments.forEach((seg) => {
+      if (!cachedSegments.includes(seg)) {
+        cachedSegments.push(seg);
+      }
+    });
 
-    // Preload more segments for stability
+    lastFetchedSegment = tsSegments[tsSegments.length - 1];
+
+    // Preload more segments
     await preloadSegments(tsSegments);
 
-    // Rebuild playlist for continuous playback
-    const updatedM3U8 = rebuildPlaylist(m3u8Data);
+    // Dynamically build the playlist for playback
+    const updatedM3U8 = buildDynamicPlaylist(m3u8Data);
 
-    // Set headers for stability and playback
+    // Set response headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.setHeader("Cache-Control", "public, max-age=15"); // Short cache for near real-time updates
+    res.setHeader("Cache-Control", "public, max-age=10"); // Short cache for near real-time updates
 
     res.status(200).send(updatedM3U8);
   } catch (error) {
@@ -60,7 +67,7 @@ export default async function handler(req, res) {
   }
 }
 
-// Function to preload segments and retry on failure
+// Function to preload segments
 async function preloadSegments(segments, retries = 3) {
   for (const segment of segments) {
     try {
@@ -72,23 +79,20 @@ async function preloadSegments(segments, retries = 3) {
       console.error(`Failed to preload segment: ${segment}, Error: ${error}`);
       if (retries > 0) {
         await preloadSegments([segment], retries - 1);
-      } else {
-        segmentFetchErrors++;
       }
     }
   }
 }
 
-// Function to rebuild the playlist for continuous playback
-function rebuildPlaylist(m3u8Data) {
+// Function to build a dynamic playlist
+function buildDynamicPlaylist(m3u8Data) {
   const lines = m3u8Data.split("\n");
   const segments = lines.filter((line) => line.endsWith(".ts"));
 
-  // Append cached segments for looping
-  const loopedSegments = [...segments, ...cachedSegments].join("\n");
+  // Append new segments dynamically
+  const allSegments = [...cachedSegments].join("\n");
 
-  // Replace original segments with the looped playlist
   return lines
-    .map((line) => (line.endsWith(".ts") ? loopedSegments : line))
+    .map((line) => (line.endsWith(".ts") ? allSegments : line))
     .join("\n");
 }
